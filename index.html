@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dino Q-Learning Lab — Aprendizagem por Reforço Didática</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="brand">
+                <div>
+                    <h1>🦖 Dino Q-Learning Lab</h1>
+                    <p>Aprendizagem por Reforço Didática — Estados, Ações (Correr / Saltar) e Memória em Tempo Real</p>
+                </div>
+            </div>
+
+            <div class="header-controls">
+                <div class="dino-picker" title="Escolha qual personagem Dino da sua coleção treinar">
+                    <button class="dino-btn active" data-dino="vita"><canvas id="prev-vita" width="24"
+                            height="24"></canvas> Vita</button>
+                    <button class="dino-btn" data-dino="mort"><canvas id="prev-mort" width="24" height="24"></canvas>
+                        Mort</button>
+                    <button class="dino-btn" data-dino="tard"><canvas id="prev-tard" width="24" height="24"></canvas>
+                        Tard</button>
+                    <button class="dino-btn" data-dino="doux"><canvas id="prev-doux" width="24" height="24"></canvas>
+                        Doux</button>
+                </div>
+
+                <label class="file-label" for="assetInput" title="Selecione seus arquivos PNG da pasta images/">
+                    📁 Carregar Meus Sprites (.png)
+                </label>
+                <input id="assetInput" class="hidden-input" type="file" multiple accept="image/*" />
+
+                <span id="assetStatus" class="asset-status">Verificando pasta images/...</span>
+            </div>
+        </header>
+
+        <!-- MAIN GRID -->
+        <div class="main-grid">
+            <!-- LEFT: GAME + BRAIN -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        🎮 Ambiente & Sensores do Agente
+                        <span id="modeBadge" class="badge">Modo: Agente Q-Learning</span>
+                    </div>
+                    <div class="btn-group">
+                        <button id="toggleModeBtn">🕹️ Jogar Manualmente</button>
+                        <button id="toggleSensorsBtn" class="active-speed">👁️ Sensores: ON</button>
+                    </div>
+                </div>
+
+                <div class="canvas-wrap">
+                    <canvas id="gameCanvas" width="800" height="250"></canvas>
+                </div>
+
+                <div class="toolbar">
+                    <div class="btn-group">
+                        <button id="playPauseBtn" class="primary">⏸️ Pausar</button>
+                        <button id="stepBtn">⏭️ Passo</button>
+                        <button id="speed-1" class="speed-btn active-speed" data-speed="1">1x</button>
+                        <button id="speed-2" class="speed-btn" data-speed="2">2x</button>
+                        <button id="speed-5" class="speed-btn" data-speed="5">5x</button>
+                        <button id="speed-15" class="speed-btn" data-speed="15">15x Turbo</button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="fastTrainBtn"
+                            title="Executa 50 episódios instantaneamente usando o algoritmo real">⚡ +50
+                            Episódios</button>
+                        <button id="resetQBtn" class="danger">🗑️ Zerar Memória (Q)</button>
+                    </div>
+                </div>
+
+                <!-- LIVE BRAIN / EQUATION -->
+                <div class="brain-box">
+                    <div class="brain-head">
+                        <strong style="font-size:0.9rem;">🧠 Cérebro do Agente neste Instante</strong>
+                        <span id="decisionTypeBadge" class="badge">Decisão: —</span>
+                    </div>
+
+                    <div class="state-pills">
+                        <div class="pill">Estado Atual <strong>s</strong>: <span id="curStateLabel">—</span></div>
+                        <div class="pill">Distância Real: <strong id="curDistPx">—</strong></div>
+                        <div class="pill">Velocidade: <strong id="curSpeedPx">—</strong></div>
+                    </div>
+
+                    <div class="action-compare">
+                        <div id="meterRun" class="q-meter">
+                            <div class="q-meter-top">
+                                <span>🏃 Ação 0: CORRER</span>
+                                <span id="curQRun">0.00</span>
+                            </div>
+                            <div class="q-bar-bg">
+                                <div id="barRun" class="q-bar-fill"></div>
+                            </div>
+                        </div>
+                        <div id="meterJump" class="q-meter">
+                            <div class="q-meter-top">
+                                <span>🦘 Ação 1: SALTAR</span>
+                                <span id="curQJump">0.00</span>
+                            </div>
+                            <div class="q-bar-bg">
+                                <div id="barJump" class="q-bar-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="formula-box">
+                        <div class="formula-title">Última Atualização da Tabela Q (Equação de Bellman / Q-Learning)
+                        </div>
+                        <div class="formula-ref">
+                            Q(s, a) ← Q(s, a) + α · [ r + γ · max<sub>a'</sub> Q(s', a') − Q(s, a) ]
+                        </div>
+                        <div id="liveEquation">Aguardando primeira transição de estado...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: METRICS + PARAMS + CHART -->
+            <div class="right-col">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 Desempenho do Aprendizado</div>
+                        <button id="exportQBtn" class="btn-mini">💾 Exportar Q (JSON)</button>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">Episódio Atual</div>
+                            <div id="statEpisode" class="stat-value">1</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Pontuação / Obstáculos</div>
+                            <div id="statScore" class="stat-value">0 (0)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Recorde de Obstáculos</div>
+                            <div id="statBest" class="stat-value" style="color: var(--green);">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Média (Últimos 10 ep.)</div>
+                            <div id="statAvg" class="stat-value" style="color: var(--accent);">0.0</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-section">
+                        <div class="chart-legend">
+                            <span>Obstáculos superados por episódio</span>
+                            <span>— Média móvel (10 ep.)</span>
+                        </div>
+                        <canvas id="chartCanvas" width="440" height="160"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🎛️ Hiperparâmetros do Q-Learning</div>
+                    </div>
+                    <div class="sliders">
+                        <div class="slider-row">
+                            <div class="slider-head">
+                                <span>Taxa de Aprendizado (α)</span>
+                                <span id="valAlpha">0.25</span>
+                            </div>
+                            <input id="sliderAlpha" type="range" min="0.05" max="1" step="0.05" value="0.25" />
+                            <div class="slider-desc">Define o peso das experiências novas sobre o que já está na
+                                memória.</div>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-head">
+                                <span>Fator de Desconto (γ)</span>
+                                <span id="valGamma">0.90</span>
+                            </div>
+                            <input id="sliderGamma" type="range" min="0.1" max="0.99" step="0.01" value="0.90" />
+                            <div class="slider-desc">Quanto o agente valoriza recompensas futuras vs. recompensas
+                                imediatas.</div>
+                        </div>
+
+                        <div class="slider-row">
+                            <div class="slider-head">
+                                <span>Exploração (ε — Epsilon)</span>
+                                <span id="valEpsilon">0.40</span>
+                            </div>
+                            <input id="sliderEpsilon" type="range" min="0" max="1" step="0.01" value="0.40" />
+                            <div class="decay-row">
+                                <span class="slider-desc">Probabilidade de testar uma ação aleatória.</span>
+                                <label class="decay-label">
+                                    <input id="autoDecayCheck" type="checkbox" checked /> Decaimento automático
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="slider-row" style="margin-top:4px;">
+                            <div class="slider-head">
+                                <span>Velocidade dos Obstáculos</span>
+                                <select id="envSpeedMode">
+                                    <option value="progressive">Progressiva (Normal → Rápida)</option>
+                                    <option value="normal">Sempre Normal</option>
+                                    <option value="mixed">Alternada (Normal / Rápida)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM: STATES + MEMORY (Q-TABLE) -->
+        <div class="bottom-grid">
+            <!-- LEFT BOTTOM: STATES & POLICY MAP -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🧩 Apresentação dos Estados (Espaço S)</div>
+                    <span class="badge">5 × 2 × 2 = 20 Estados</span>
+                </div>
+
+                <div class="state-guide">
+                    <div class="dim-box">
+                        <div class="dim-title">1. Distância até o próximo obstáculo (5 faixas)</div>
+                        <div class="dim-tags" id="tagsDist">
+                            <span class="dim-tag" data-dist="0">MUITO PERTO (&lt;36px)</span>
+                            <span class="dim-tag" data-dist="1">PERTO (36–99px)</span>
+                            <span class="dim-tag" data-dist="2">MÉDIA (100–167px)</span>
+                            <span class="dim-tag" data-dist="3">LONGE (168–254px)</span>
+                            <span class="dim-tag" data-dist="4">LIVRE (≥255px)</span>
+                        </div>
+                    </div>
+
+                    <div class="dim-box">
+                        <div class="dim-title">2. Tipo de Obstáculo (2 tipos)</div>
+                        <div class="dim-tags" id="tagsObs">
+                            <span class="dim-tag" data-obs="0">BAIXO (30px)</span>
+                            <span class="dim-tag" data-obs="1">ALTO (48px)</span>
+                        </div>
+                    </div>
+
+                    <div class="dim-box">
+                        <div class="dim-title">3. Faixa de Velocidade (2 níveis)</div>
+                        <div class="dim-tags" id="tagsVel">
+                            <span class="dim-tag" data-vel="0">NORMAL (&lt;7.0 px/tick)</span>
+                            <span class="dim-tag" data-vel="1">RÁPIDA (≥7.0 px/tick)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="section-sub">🗺️ Mapa de Política Aprendida π*(s)</div>
+                        <p class="section-hint">Resumo visual do que o Dino prefere fazer em cada combinação de estado:
+                        </p>
+                        <table class="policy-grid" id="policyGrid"></table>
+                    </div>
+
+                    <div>
+                        <div class="section-sub">🎯 Estrutura de Recompensas (r)</div>
+                        <div class="reward-legend">
+                            <span class="reward-chip" style="color:#7dd3fc;">+1 Sobreviver transição</span>
+                            <span class="reward-chip" style="color:#86efac;">+15 Superar obstáculo</span>
+                            <span class="reward-chip" style="color:#fbbf24;">−2 Custo do salto</span>
+                            <span class="reward-chip" style="color:#fca5a5;">−100 Colidir</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT BOTTOM: FULL REAL-TIME Q-TABLE -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💾 Memória do Agente — Tabela Q em Tempo Real</div>
+                    <span class="badge">Linha destacada = Estado atual | Célula piscando = Memória atualizada</span>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="q-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Distância</th>
+                                <th>Obstáculo</th>
+                                <th>Velocidade</th>
+                                <th style="text-align:right;">Q(s, 🏃 Correr)</th>
+                                <th style="text-align:right;">Q(s, 🦘 Saltar)</th>
+                                <th>Melhor Ação π*</th>
+                                <th style="text-align:right;">Visitas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
